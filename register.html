@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Registration</title>
+    <link rel="stylesheet" href="register.css">
+</head>
+<body>
+    <div class="form-container">
+        <h1>Registration</h1>
+        <form id="registerForm">
+            <label for="name">Full Name:</label>
+            <input type="text" id="name" placeholder="Name" required>
+
+            <label for="email">E-mail:</label>
+            <input type="email" id="email" placeholder="E-mail" required>
+
+            <label for="password">Password:</label>
+            <input type="password" id="password" placeholder="Password" required>
+
+            <label for="confirmPassword">Confirm Password:</label>
+            <input type="password" id="confirmPassword" placeholder="Confirm Password" required>
+
+            <div class="form-links">
+                <a href="login.html" id="login1">Already have an account? Login</a>
+            </div>
+
+            <input type="submit" value="Register">
+        </form>
+
+        <p id="message" style="margin-top: 15px; text-align: center; min-height: 1.4em;"></p>
+    </div>
+
+<script>
+// Prevent loading in an iframe
+if (window.top !== window.self) {
+alert("Clickjacking detected!");
+window.top.location =
+window.location;
+}
+    const form = document.getElementById('registerForm');
+    const message = document.getElementById('message');
+
+    form.addEventListener('submit', async function(e) {
+        e.preventDefault();
+        message.textContent = '';
+        message.style.color = '';
+
+        // Add CSRF token before submit
+        const csrfToken = "abc123";
+        const input = document.createElement("input");
+        input.type = "hidden";
+        input.name = "csrf_token";
+        input.value = csrfToken;
+        form.appendChild(input);
+
+        const name = document.getElementById('name').value.trim();
+        const email = document.getElementById('email').value.trim();
+        const password = document.getElementById('password').value.trim();
+        const confirmPassword = document.getElementById('confirmPassword').value.trim();
+
+        if (!name) return showMessage('Name is required', 'red');
+        if (!/^[a-zA-Z\s]+$/.test(name)) return showMessage('Name cannot contain numbers or special characters', 'red');
+        if (!email || !password || !confirmPassword) return showMessage('Please fill in all fields', 'red');
+        if (password !== confirmPassword) return showMessage('Passwords do not match', 'red');
+        if (password.length < 6) return showMessage('Password should be at least 6 characters', 'red');
+
+        try {
+            const response = await fetch('/api/register', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name, email, password, csrf_token: csrfToken }),
+                credentials: 'include'
+            });
+
+            const data = await response.json();
+
+            if (!response.ok) return showMessage(data.error || 'Registration failed', 'red');
+
+            showMessage('Account created! Loggin in!', 'green');
+
+            setTimeout(() => { window.location.href = '/'; }, 1200);
+
+        } catch (err) {
+            showMessage('Network error. Check if server is running', 'red');
+            console.error(err);
+        }
+    });
+
+    function showMessage(text, color) {
+        message.textContent = text;
+        message.style.color = color;
+    }
+</script>
+</body>
+</html>

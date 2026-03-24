@@ -1,0 +1,17 @@
+{
+  "name": "expense-credit-tracker",
+  "version": "1.0.0",
+  "description": "Node.js Expense Tracker with SQLite",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "@sendgrid/mail": "^8.1.6",
+    "bcrypt": "^6.0.0",
+    "dotenv": "^17.3.1",
+    "express": "^5.2.1",
+    "express-session": "^1.19.0",
+    "sqlite3": "5.1.6"
+  }
+}

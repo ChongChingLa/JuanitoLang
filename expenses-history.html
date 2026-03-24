@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Expense History</title>
+    <link rel="stylesheet" href="main.css">
+</head>
+<body>
+<nav class="navigationBar">
+    <ul class="nav-menu">
+        <li class="dropdown">
+            <button class="dropdown-btn">
+                Expenses <span class="dropdown-arrow">▼</span>
+            </button>
+            <ul class="dropdown-content">
+                <li><a href="expenses.html">View Expenses</a></li>
+                <li><a href="expenses-history.html">Expenses History</a></li>
+            </ul>
+        </li>
+        <li class="dropdown">
+            <button class="dropdown-btn">
+                Credits <span class="dropdown-arrow">▼</span>
+            </button>
+            <ul class="dropdown-content">
+                <li><a href="credits.html">View Credits</a></li>
+                <li><a href="credits-history.html">Credits History</a></li>
+            </ul>
+        </li>
+    </ul>
+    <div class="nav-right">
+    <div id="greeting">Hello,&nbsp;<span id="userName"></span></div>
+    <button id="logoutBtn">Logout</button>
+    </div>
+    </nav>
+
+    <div class="stats-panel">
+    <span id="totalPaid">Total Paid: 0₱</span>
+    <span id="pending">Pending: 0₱</span>
+    <span id="overdue">Overdue: 0₱</span>
+    </div>
+    <h1 style="text-align:center; margin-top:20px;">Expense History</h1>
+    <!-- Table Container -->
+    <div class="table-container">
+        <div class="table-scroll">
+            <table id="expenseTable">
+                <tr>
+                    <th>Due Date</th>
+                    <th>Description</th>
+                    <th>Category</th>
+                    <th>Amount</th>
+                    <th>Status</th>
+                </tr>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        // Prevent loading in an iframe
+    if (window.top !== window.self) {
+    alert("Clickjacking detected!");
+    window.top.location =
+    window.location;
+    }
+        document.querySelectorAll('.dropdown-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const dropdown = btn.nextElementSibling;
+            const isVisible = dropdown.style.display === 'block';
+            // Close all dropdowns
+            document.querySelectorAll('.dropdown-content').forEach(d => d.style.display = 'none');
+            // Toggle current
+            dropdown.style.display = isVisible ? 'none' : 'block';
+            });
+        });
+        fetch('/api/user', { credentials: 'include' })
+            .then(res => {
+                if (!res.ok) throw new Error('Not logged in');
+                return res.json();
+            })
+            .then(data => {
+                document.getElementById('userName').textContent = data.name;
+            })
+            .catch(err => {
+                console.error(err);
+                document.getElementById('userName').textContent = '';
+            });
+        document.addEventListener('click', () => {
+            document.querySelectorAll('.dropdown-content').forEach(d => d.style.display = 'none');
+        });
+        async function loadPaidExpenses() {
+            try {
+                // Fetch the new paid-only route
+                const response = await fetch('/api/expenses/paid', { credentials: 'include' });
+                if (response.status === 401) {
+                    alert("Session expired. Please log in again.");
+                    window.location.href = 'login.html';
+                    return;
+                }
+                if (!response.ok) throw new Error('Failed to load expenses');
+
+                const data = await response.json();
+                const table = document.getElementById('expenseTable');
+
+                // Clear previous rows except header
+                while (table.rows.length > 1) table.deleteRow(1);
+
+                // Sort by date
+                data.sort((a, b) => new Date(a.date) - new Date(b.date));
+
+                // Insert rows
+                data.forEach(expense => {
+                    const row = table.insertRow();
+                    row.insertCell(0).innerText = new Date(expense.date).toLocaleDateString();
+                    row.insertCell(1).innerText = expense.description;
+                    row.insertCell(2).innerText = expense.category;
+                    row.insertCell(3).innerText = expense.amount + "₱";
+                    row.insertCell(4).innerText = expense.status;
+                });
+            } catch (err) {
+                console.error(err);
+                alert("Could not load expenses. Check if you're logged in.");
+            }
+        }
+
+        // Logout
+        document.querySelector('#logoutBtn').addEventListener('click', async () => {
+            await fetch('/logout', { method: 'POST', credentials: 'include' });
+            window.location.href = 'login.html';
+        });
+        async function loadStats() {
+        const [unpaidRes, paidRes] = await Promise.all([
+            fetch('/api/expenses', { credentials: 'include' }),
+            fetch('/api/expenses/paid', { credentials: 'include' })
+        ]);
+        const unpaid = await unpaidRes.json();
+        const paid = await paidRes.json();
+
+        let totalPaid = paid.reduce((sum, e) => sum + parseFloat(e.amount || 0), 0);
+        let totalPending = unpaid.filter(e => e.status === "Unpaid")
+                                .reduce((sum, e) => sum + parseFloat(e.amount || 0), 0);
+        let totalOverdue = unpaid.filter(e => e.status === "Overdue")
+                                .reduce((sum, e) => sum + parseFloat(e.amount || 0), 0);
+
+        document.getElementById("totalPaid").innerText = "Total Paid Amount: " + totalPaid.toLocaleString() + "₱";
+        document.getElementById("pending").innerText = "Pending Expenses Amount: " + totalPending.toLocaleString() + "₱";
+        document.getElementById("overdue").innerText = "Overdue Expenses Amount: " + totalOverdue.toLocaleString() + "₱";
+        }
+        window.addEventListener('load', () => {
+        loadPaidExpenses();
+        loadStats();
+        });
+</script>
+</body>
+</html>

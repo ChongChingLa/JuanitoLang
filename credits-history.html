@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Credits History</title>
+<link rel="stylesheet" href="main.css">
+</head>
+<body>
+<nav class="navigationBar">
+    <ul class="nav-menu">
+        <li class="dropdown">
+            <button class="dropdown-btn">Expenses <span class="dropdown-arrow">▼</span></button>
+            <ul class="dropdown-content">
+                <li><a href="expenses.html">View Expenses</a></li>
+                <li><a href="expenses-history.html">Expenses History</a></li>
+            </ul>
+        </li>
+        <li class="dropdown">
+            <button class="dropdown-btn">Credits <span class="dropdown-arrow">▼</span></button>
+            <ul class="dropdown-content">
+                <li><a href="credits.html">View Credits</a></li>
+                <li><a href="credits-history.html">Credits History</a></li>
+            </ul>
+        </li>
+    </ul>
+    <div class="nav-right">
+    <div id="greeting">Hello,&nbsp;<span id="userName"></span></div>
+    <button id="logoutBtn">Logout</button>
+    </div>
+</nav>
+
+<div class="stats-panel">
+    <span id="totalPaid">Total Credit Paid: 0₱</span>
+    <span id="pending">Pending Credit: 0₱</span>
+    <span id="overdue">Overdue: 0₱</span>
+</div>
+
+<h1 style="text-align:center; margin:20px 0;">Credits History</h1>
+
+<div class="table-container">
+    <div class="table-scroll">
+        <table id="creditsTable">
+            <tr>
+                <th>Date Borrowed</th>
+                <th>Due Date</th>
+                <th>Date Paid</th>
+                <th>Customer Name</th>
+                <th>Description</th>
+                <th>Amount</th>
+                <th>Status</th>
+            </tr>
+        </table>
+    </div>
+</div>
+
+<script>
+// Prevent loading in an iframe
+if (window.top !== window.self) {
+alert("Clickjacking detected!");
+window.top.location =
+window.location;
+}
+// Dropdown
+document.querySelectorAll('.dropdown-btn').forEach(btn=>{
+    btn.addEventListener('click', e=>{
+        e.stopPropagation();
+        const dropdown = btn.nextElementSibling;
+        const isVisible = dropdown.style.display === 'block';
+        document.querySelectorAll('.dropdown-content').forEach(d=>d.style.display='none');
+        dropdown.style.display = isVisible?'none':'block';
+    });
+});
+fetch('/api/user', { credentials: 'include' })
+    .then(res => {
+        if (!res.ok) throw new Error('Not logged in');
+        return res.json();
+    })
+    .then(data => {
+        document.getElementById('userName').textContent = data.name;
+    })
+    .catch(err => {
+        console.error(err);
+        document.getElementById('userName').textContent = '';
+    });
+document.addEventListener('click', ()=>document.querySelectorAll('.dropdown-content').forEach(d=>d.style.display='none'));
+
+// Load paid credits
+async function loadCreditsHistory(){
+    try{
+        const res = await fetch('/api/credits',{credentials:'include'});
+        if(!res.ok) throw new Error('Failed to load credits');
+        const data = await res.json();
+
+        const table = document.getElementById('creditsTable');
+        while(table.rows.length>1) table.deleteRow(1);
+
+        data
+        .filter(c=>c.status==="Paid")  // only paid
+        .sort((a,b)=>new Date(a.dateBorrowed)-new Date(b.dateBorrowed))
+        .forEach(c=>{
+            const row = table.insertRow();
+            row.insertCell(0).innerText = new Date(c.dateBorrowed).toLocaleDateString();
+            row.insertCell(1).innerText = new Date(c.dueDate).toLocaleDateString(); // added
+            row.insertCell(2).innerText = c.paidDate?new Date(c.paidDate).toLocaleDateString():'-';
+            row.insertCell(3).innerText = c.customerName;
+            row.insertCell(4).innerText = c.description;
+            row.insertCell(5).innerText = parseFloat(c.originalAmount).toLocaleString()+"₱";
+            row.insertCell(6).innerText = c.status;
+        });
+        loadStats(data);
+    }catch(err){
+        console.error(err);
+        alert("Could not load credits. Check if logged in.");
+    }
+}
+
+// Stats
+function loadStats(data){
+    let totalPaid=0,pending=0,overdue=0;
+    data.forEach(c=>{
+        const remaining=parseFloat(c.remainingAmount),original=parseFloat(c.originalAmount),paid=original-remaining;
+        totalPaid+=paid;
+        if(c.status==="Pending") pending+=remaining;
+        else if(c.status==="Overdue") overdue+=remaining;
+    });
+    document.getElementById("totalPaid").innerText="Total Paid Amount: "+totalPaid.toLocaleString()+"₱";
+    document.getElementById("pending").innerText="Pending Credit Amount: "+pending.toLocaleString()+"₱";
+    document.getElementById("overdue").innerText="Overdue Credit Amount: "+overdue.toLocaleString()+"₱";
+}
+
+
+// Logout
+document.getElementById('logoutBtn').addEventListener('click', async ()=>{
+    await fetch('/logout',{method:'POST',credentials:'include'});
+    window.location.href='login.html';
+});
+
+window.addEventListener('load', loadCreditsHistory);
+</script>
+</body>
+</html>

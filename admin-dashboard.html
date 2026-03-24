@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard</title>
+    <link rel="stylesheet" href="main.css">
+</head>
+
+<body>
+
+    <nav class="navigationBar">
+        <ul class="nav-menu">
+            <li><a href="#">Admin Dashboard</a></li>
+        </ul>
+    <div class="nav-right">
+    <div id="greeting">Hello,&nbsp;<span id="userName"></span></div>
+    <button id="logoutBtn">Logout</button>
+    </div>
+    </nav>
+<div class="stats-panel">
+    <span id="totalUsers">Total Users: 0</span>
+    <span id="totalExpenses">Total Expenses: 0₱</span>
+    <span id="totalCredits">Total Credits: 0₱</span>
+</div>
+    <h1 style="text-align:center; margin-top:20px;">Users</h1>
+
+    <div class="table-container">
+        <div class="table-scroll">
+
+            <table id="expenseTable">
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>Email</th>
+                        <th>Role</th>
+                        <th>Created</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+
+                <tbody></tbody>
+            </table>
+
+        </div>
+    </div>
+
+<script>
+// Prevent loading in an iframe
+if (window.top !== window.self) {
+alert("Clickjacking detected!");
+window.top.location =
+window.location;
+}
+
+async function loadUsers() {
+
+    const res = await fetch('/api/users', { credentials: 'include' });
+
+    if (res.status === 401) {
+        alert("Login required");
+        window.location.href = "login.html";
+        return;
+    }
+
+    if (res.status === 403) {
+        alert("Admin only");
+        window.location.href = "expenses.html";
+        return;
+    }
+
+    const users = await res.json();
+
+    // move admin users to the top
+    users.sort((a, b) => {
+        if (a.role === "admin") return -1;
+        if (b.role === "admin") return 1;
+        return 0;
+    });
+
+    const tbody = document.querySelector("#expenseTable tbody");
+    tbody.innerHTML = "";
+
+    users.forEach(user => {
+
+        const row = document.createElement("tr");
+
+        row.innerHTML = `
+            <td>${user.name || ''}</td>
+            <td>${user.email}</td>
+            <td>${user.role}</td>
+            <td>${new Date(user.created_at).toLocaleString()}</td>
+            <td></td>
+        `;
+
+        const actionCell = row.children[4];
+
+        if (user.role !== "admin") {
+
+            const deleteBtn = document.createElement("button");
+            deleteBtn.textContent = "Delete";
+
+            deleteBtn.onclick = async () => {
+
+                if (!confirm("Delete this user?")) return;
+
+                const res = await fetch("/api/users/" + user.usersID, {
+                    method: "DELETE",
+                    credentials: "include"
+                });
+
+                if (!res.ok) {
+                    alert("Delete failed");
+                    return;
+                }
+
+                row.remove();
+            };
+
+            actionCell.appendChild(deleteBtn);
+        }
+
+        tbody.appendChild(row);
+
+    });
+
+}
+async function loadAdminStats() {
+    try {
+        const usersRes = await fetch('/api/users', { credentials: 'include' });
+        if (!usersRes.ok) return; // abort if not authenticated
+        const users = await usersRes.json();
+        const totalUsers = users.length - 1;
+        document.getElementById("totalUsers").innerText = "Total Users: " + totalUsers;
+
+        const expensesRes = await fetch('/api/expenses/admin', { credentials: 'include' });
+        if (!expensesRes.ok) return;
+        const allExpenses = await expensesRes.json();
+        const totalExpenses = allExpenses.reduce((sum, e) => sum + parseFloat(e.amount || 0), 0);
+        document.getElementById("totalExpenses").innerText = "Total Users Expenses: " + totalExpenses.toLocaleString() + "₱";
+
+        const creditsRes = await fetch('/api/credits/admin', { credentials: 'include' });
+        if (!creditsRes.ok) return;
+        const allCredits = await creditsRes.json();
+        const totalCredits = allCredits.reduce((sum, c) => sum + parseFloat(c.originalAmount || 0), 0);
+        document.getElementById("totalCredits").innerText = "Total Users Credits: " + totalCredits.toLocaleString() + "₱";
+
+    } catch (err) {
+        console.error("Failed to load admin stats", err);
+    }
+}
+
+fetch('/api/user', { credentials: 'include' })
+    .then(res => {
+        if (!res.ok) throw new Error('Not logged in');
+        return res.json();
+    })
+    .then(data => {
+        document.getElementById('userName').textContent = data.name;
+    })
+    .catch(err => {
+        console.error(err);
+        document.getElementById('userName').textContent = '';
+    });
+
+// Call after loading users
+window.addEventListener("load", async () => {
+    await loadUsers();
+    await loadAdminStats();
+});
+
+document.getElementById("logoutBtn").onclick = async () => {
+    await fetch("/logout", { method: "POST", credentials: "include" });
+    window.location.href = "login.html";
+};
+
+</script>
+
+</body>
+</html>

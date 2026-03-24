@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login</title>
+    <link rel="stylesheet" href="login.css">
+</head>
+<body>
+    <div class="form-container">
+        <h1>Login</h1>
+        <form id="loginForm">
+            <label for="email">E-mail:</label>
+            <input type="email" id="email" placeholder="E-mail" required>
+            
+            <label for="password">Password:</label>
+            <input type="password" id="password" placeholder="Password" required>
+            
+            <div class="form-links">
+                <a href="forgot-password.html" id="forget">Forget Password? </a>
+                <a href="register.html" id="register">Register?</a>
+            </div>
+            
+            <input type="submit" value="Login">
+        </form>
+
+        <p id="message" style="margin-top: 15px; text-align: center; min-height: 1.4em;"></p>
+    </div>
+
+<script>
+const form = document.getElementById('loginForm');
+const messageEl = document.getElementById('message');
+
+form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+
+    // Add CSRF token before submit
+    const csrfToken = "abc123";
+    const input = document.createElement("input");
+    input.type = "hidden";
+    input.name = "csrf_token";
+    input.value = csrfToken;
+    form.appendChild(input);
+
+    const email = document.getElementById('email').value.trim();
+    const password = document.getElementById('password').value.trim();
+
+    messageEl.textContent = '';
+    messageEl.style.color = '';
+
+    try {
+        const res = await fetch('/api/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email, password, csrf_token: csrfToken }),
+            credentials: 'include'
+        });
+
+        const data = await res.json().catch(() => ({}));
+
+        if (!res.ok) {
+            messageEl.style.color = 'red';
+            messageEl.textContent = data.error || 'Login failed';
+            return;
+        }
+
+        messageEl.style.color = 'green';
+        messageEl.textContent = 'Login successful!';
+
+        setTimeout(() => {
+            if (email === 'admin@gmail.com') window.location.href = 'admin-dashboard.html';
+            else window.location.href = '/';
+        }, 1200);
+
+    } catch (err) {
+        console.error(err);
+        messageEl.style.color = 'red';
+        messageEl.textContent = 'Network error. Check server if running';
+    }
+});
+</script>
+</body>
+</html>
